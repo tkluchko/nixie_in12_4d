@@ -1,0 +1,36 @@
+RAM Allocation
+Variable                                                          Address   Size
+--------------------------------------------------------------------------------
+ds18b20_scratch                                                   0x0160       9
+temperature                                                       0x0169       4
+rom_code                                                          0x016D      36
+digit_out                                                         0x0191       4
+day                                                               0x0195       1
+date                                                              0x0196       1
+month                                                             0x0197       1
+year                                                              0x0198       1
+btn1Counter                                                       0x0199       1
+btn2Counter                                                       0x019A       1
+mode                                                              0x019B       1
+prevLastDigit                                                     0x019C       1
+lastDigit                                                         0x019D       1
+
+EEPROM Allocation
+Variable                                                          Address   Size
+--------------------------------------------------------------------------------
+
+Register Allocation
+Variable                                                          Register  Size
+--------------------------------------------------------------------------------
+ds18b20_devices                                                   R5           1
+currentSensor                                                     R4           1
+ANODE_MASK                                                        R7           1
+CATODE_MASK                                                       R6           1
+cur_dig                                                           R9           1
+displayCounter                                                    R8           1
+displayDigit                                                      R11          1
+seconds                                                           R10          1
+minutes                                                           R13          1
+hours                                                             R12          1
+show_point                                                        R2.0      1bit
+lastDigitChanged                                                  R2.1      1bit
