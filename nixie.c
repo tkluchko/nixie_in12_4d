@@ -107,6 +107,8 @@ unsigned char displayMainInfoTime = 30;
 unsigned char displaySensorInfoTime = 5;
 unsigned char modeCounter = 0;
 
+unsigned char modeTmpCounter = 0;
+
 bit manualSet = 0;
 
 void doBtn1Action(void) {
@@ -148,9 +150,33 @@ void doBtn2Action(void) {
 }
 
 
+void switchMode(void) {
 
-// Timer1 overflow interrupt service routine
-interrupt [TIM1_OVF] void timer1_ovf_isr(void) {
+	if(mode == MODE_SHOW_MAIN_INFO) {
+		if(modeCounter < displayMainInfoTime) {
+			modeCounter++;
+		} else if(displaySensorInfoTime > 0){
+			modeCounter = 0;
+			mode = MODE_SHOW_TEMPERATURE;
+		}
+	}
+	if(!manualSet && mode == MODE_SHOW_TEMPERATURE) {
+		if(modeCounter < displaySensorInfoTime) {
+			modeCounter++;
+		} else if(displayMainInfoTime > 0){
+			modeCounter = 0;
+			mode = MODE_SHOW_MAIN_INFO;
+		}
+	}
+
+}
+
+// Timer1 output compare A interrupt service routine
+interrupt [TIM1_COMPA] void timer1_compa_isr(void) {
+	if(modeTmpCounter % 20 == 0) {
+		switchMode();
+	}
+
 	if(!BTN1) {
 		btn1Counter++;
 		if(btn1Counter == CHECK_BTN_COUNT) {
@@ -170,28 +196,12 @@ interrupt [TIM1_OVF] void timer1_ovf_isr(void) {
 	} else {
 		btn2Counter = 0;
 	}
-	TCNT1=0;
+	PIN_DEBUG = ~PIN_DEBUG;
+	modeTmpCounter = modeTmpCounter == 255 ? 0 : modeTmpCounter + 1;
+	TCNT1=0; //обнуляем таймер
 }
 
 
-void switchMode(void) {
-	if(mode == MODE_SHOW_MAIN_INFO) {
-		if(modeCounter < displayMainInfoTime) {
-			modeCounter++;
-		} else if(displaySensorInfoTime > 0){
-			modeCounter = 0;
-			mode = MODE_SHOW_TEMPERATURE;
-		}
-	}
-	if(!manualSet && mode == MODE_SHOW_TEMPERATURE) {
-		if(modeCounter < displaySensorInfoTime) {
-			modeCounter++;
-		} else if(displayMainInfoTime > 0){
-			modeCounter = 0;
-			mode = MODE_SHOW_MAIN_INFO;
-		}
-	}
-}
 
 void showInfo() {
 
@@ -336,6 +346,7 @@ void main(void)
 	TCCR0 = 0x00;
 	TCNT0 = 0x00;
 
+
 // Timer/Counter 1 initialization
 // Clock source: System Clock
 // Clock value: 7,813 kHz
@@ -344,18 +355,18 @@ void main(void)
 // OC1B output: Discon.
 // Noise Canceler: Off
 // Input Capture on Falling Edge
-// Timer1 Overflow Interrupt: On
+// Timer1 Overflow Interrupt: Off
 // Input Capture Interrupt: Off
-// Compare A Match Interrupt: Off
+// Compare A Match Interrupt: On
 // Compare B Match Interrupt: Off
 TCCR1A=0x00;
-TCCR1B=0x02;
+TCCR1B=0x05;
 TCNT1H=0x00;
 TCNT1L=0x00;
 ICR1H=0x00;
 ICR1L=0x00;
-OCR1AH=0x00;
-OCR1AL=0x00;
+OCR1AH=0x01;
+OCR1AL=0x86;
 OCR1BH=0x00;
 OCR1BL=0x00;
 
@@ -377,7 +388,8 @@ OCR2 = 0x00;
 MCUCR=0x00;
 
 // Timer(s)/Counter(s) Interrupt(s) initialization
-TIMSK = 0x44;
+//TIMSK = 0x44;
+TIMSK = 0x50;
 
 
 
@@ -442,11 +454,10 @@ rtc_get_time(&seconds, &minutes, &hours, &day, &date, &month, &year);
 		if (tmp_counter % 5 == 0) {
 			show_point = ~show_point;
 		}
-		switchMode();
+		
 
-		if (tmp_counter % 10 == 0) {
-			displayInfo();
-		}
+		displayInfo();
+		
 
 
 
