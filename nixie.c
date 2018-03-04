@@ -33,9 +33,11 @@
 #define MODE_SET_TIME_HOUR 1
 #define MODE_SET_TIME_MINUTE 2
 #define MODE_SET_TIME_SECONDS 3
+#define MODE_SET_DISPLAY_MAIN_INFO_TIME 4
+#define MODE_SET_DISPLAY_SENSORS_TIME 5
 
-#define MODE_SHOW_SECONDS 4
-#define MODE_SHOW_TEMPERATURE 5
+#define MODE_SHOW_SECONDS 40
+#define MODE_SHOW_TEMPERATURE 50
 
 
 #define BTN1 PINC.0
@@ -54,9 +56,6 @@
 ds18b20_temperature_data_struct temperature;
 unsigned char ds18b20_devices;
 unsigned char rom_code[MAX_DS18b20][9];
-unsigned char currentSensor;
-
-
 
 static flash unsigned char digit[] = {
 	0,
@@ -104,16 +103,21 @@ unsigned char lastDigit;
 bit show_point;
 bit lastDigitChanged;
 
+unsigned char displayMainInfoTime = 30;
+unsigned char displaySensorInfoTime = 5;
+unsigned char modeCounter = 0;
 
+bit manualSet = 0;
 
 void doBtn1Action(void) {
-	mode = mode < 5 ? (mode + 1) : 0;
+	mode = mode < 6 ? (mode + 1) : 0;
 }
 
 void doBtn2Action(void) {
 	switch (mode) {
 		case MODE_SHOW_MAIN_INFO:
 			mode = MODE_SHOW_TEMPERATURE;
+			manualSet = 1;
 			break;
 		case MODE_SET_TIME_HOUR:
 			hours = hours < 23 ? (hours + 1) : 0;
@@ -127,7 +131,17 @@ void doBtn2Action(void) {
 			seconds = 0;
 			rtc_set_time(seconds, minutes, hours, day, date, month, year);
 			break;
+		case MODE_SET_DISPLAY_MAIN_INFO_TIME:
+			displayMainInfoTime = displayMainInfoTime < 60 ? (displayMainInfoTime + 5) : 0;
+			break;
+		case MODE_SET_DISPLAY_SENSORS_TIME:
+			displaySensorInfoTime = displaySensorInfoTime < 60 ? (displaySensorInfoTime + 5) : 0;
+			break;
 		case MODE_SHOW_TEMPERATURE:
+			manualSet = 0;
+			mode = MODE_SHOW_SECONDS;
+			break;
+		case MODE_SHOW_SECONDS:
 			mode = MODE_SHOW_MAIN_INFO;
 			break;
 	}
@@ -160,38 +174,54 @@ interrupt [TIM1_OVF] void timer1_ovf_isr(void) {
 }
 
 
+void switchMode(void) {
+	if(mode == MODE_SHOW_MAIN_INFO) {
+		if(modeCounter < displayMainInfoTime) {
+			modeCounter++;
+		} else if(displaySensorInfoTime > 0){
+			modeCounter = 0;
+			mode = MODE_SHOW_TEMPERATURE;
+		}
+	}
+	if(!manualSet && mode == MODE_SHOW_TEMPERATURE) {
+		if(modeCounter < displaySensorInfoTime) {
+			modeCounter++;
+		} else if(displayMainInfoTime > 0){
+			modeCounter = 0;
+			mode = MODE_SHOW_MAIN_INFO;
+		}
+	}
+}
+
 void showInfo() {
 
- if(displayCounter == 0) {
-  unsigned char anodeVar = PORT_ANODE & ANODE_MASK;
-  unsigned char catodeVar = PORT_CATODE & CATODE_MASK;
- 
-  PORT_CATODE &= CATODE_MASK;
-  PORT_ANODE &= ANODE_MASK;
+	if (displayCounter == 0) {
+		unsigned char anodeVar = PORT_ANODE & ANODE_MASK;
+		unsigned char catodeVar = PORT_CATODE & CATODE_MASK;
 
+		PORT_CATODE &= CATODE_MASK;
+		PORT_ANODE &= ANODE_MASK;
 
-  displayDigit = digit_out[cur_dig];
-  if(displayDigit < 10) {
-   catodeVar |= digit[displayDigit];
-   anodeVar |= commonPins[cur_dig];
-   PORT_CATODE = catodeVar;
-   PORT_ANODE = anodeVar;
-   PIN_DEBUG = ~PIN_DEBUG;
-  }
-  //delay_ms(100);
+		displayDigit = digit_out[cur_dig];
+		if (displayDigit < 10) {
+			catodeVar |= digit[displayDigit];
+			anodeVar |= commonPins[cur_dig];
+			PORT_CATODE = catodeVar;
+			PORT_ANODE = anodeVar;
+		}
+		//delay_ms(100);
 
-  if(cur_dig == 2 && mode == MODE_SHOW_MAIN_INFO) {
-   PIN_DP = show_point;
-  } else {
-   PIN_DP = 0;
-  }
+		if (cur_dig == 2 && (mode == MODE_SHOW_MAIN_INFO || mode == MODE_SHOW_TEMPERATURE)) {
+			PIN_DP = show_point;
+		} else {
+			PIN_DP = 0;
+		}
 
-
-  cur_dig++;
-  if (cur_dig > 3) {
-   cur_dig = 0;
-  }
- }
+		cur_dig++;
+		if (cur_dig > 3) {
+			cur_dig = 0;
+		}
+	}
 }
 
 
@@ -211,6 +241,7 @@ void view_term(void) {
 	digit_out[1] = temperature.temperatureIntValue % 10;
 	digit_out[2] = temperature.halfDegree ? HALF : ZERO;
 	digit_out[3] = BLANK_DIGIT;
+	show_point = 1;
 }
 
 void displayMainInfo() {
@@ -259,12 +290,24 @@ void displayInfo(void) {
 		digit_out[2] = seconds / 10;
 		digit_out[3] = seconds % 10;
 		break;
+	case MODE_SET_DISPLAY_MAIN_INFO_TIME:
+		digit_out[0] = 8;
+		digit_out[1] = 4;
+		digit_out[2] = displayMainInfoTime / 10;
+		digit_out[3] = displayMainInfoTime % 10;
+	case MODE_SET_DISPLAY_SENSORS_TIME:
+		digit_out[0] = 8;
+		digit_out[1] = 5;
+		digit_out[2] = displaySensorInfoTime / 10;
+		digit_out[3] = displaySensorInfoTime % 10;
+		break;
 	case MODE_SHOW_SECONDS:
 		digit_out[0] = BLANK_DIGIT;
 		digit_out[1] = BLANK_DIGIT;
 		digit_out[2] = seconds / 10;
 		digit_out[3] = seconds % 10;
 		break;
+
 	case MODE_SHOW_TEMPERATURE:
 		view_term();
 		break;
@@ -293,28 +336,29 @@ void main(void)
 	TCCR0 = 0x00;
 	TCNT0 = 0x00;
 
-	// Timer/Counter 1 initialization
-	// Clock source: System Clock
-	// Clock value: 7,813 kHz
-	// Mode: Normal top=0xFFFF
-	// OC1A output: Discon.
-	// OC1B output: Discon.
-	// Noise Canceler: Off
-	// Input Capture on Falling Edge
-	// Timer1 Overflow Interrupt: On
-	// Input Capture Interrupt: Off
-	// Compare A Match Interrupt: Off
-	// Compare B Match Interrupt: Off
-	TCCR1A=0x00;
-	TCCR1B=0x02;
-	TCNT1H=0x00;
-	TCNT1L=0x00;
-	ICR1H=0x00;
-	ICR1L=0x00;
-	OCR1AH=0x00;
-	OCR1AL=0x00;
-	OCR1BH=0x00;
-	OCR1BL=0x00;
+// Timer/Counter 1 initialization
+// Clock source: System Clock
+// Clock value: 7,813 kHz
+// Mode: Normal top=0xFFFF
+// OC1A output: Discon.
+// OC1B output: Discon.
+// Noise Canceler: Off
+// Input Capture on Falling Edge
+// Timer1 Overflow Interrupt: On
+// Input Capture Interrupt: Off
+// Compare A Match Interrupt: Off
+// Compare B Match Interrupt: Off
+TCCR1A=0x00;
+TCCR1B=0x02;
+TCNT1H=0x00;
+TCNT1L=0x00;
+ICR1H=0x00;
+ICR1L=0x00;
+OCR1AH=0x00;
+OCR1AL=0x00;
+OCR1BH=0x00;
+OCR1BL=0x00;
+
 
 
 // Timer/Counter 2 initialization
@@ -334,6 +378,7 @@ MCUCR=0x00;
 
 // Timer(s)/Counter(s) Interrupt(s) initialization
 TIMSK = 0x44;
+
 
 
 // USART initialization
@@ -366,13 +411,12 @@ ds18b20_devices = w1_search(0xf0, rom_code);
 
 // Global enable interrupts
 #asm("sei")
-//skip first values
- 	if (ds18b20_devices >= 0) {
- 		for (i = 0; i < ds18b20_devices; i++) {
- 			ds18b20_temperature(&rom_code[i][0]);
- 		}
- 	}
 
+
+digit_out[0] = 1;
+digit_out[1] = 2;
+digit_out[2] = 2;
+digit_out[3] = 3;
 
 
 digit_out[0] = ds18b20_devices;
@@ -380,34 +424,41 @@ digit_out[1] = BLANK_DIGIT;
 digit_out[2] = ds18b20_devices;
 digit_out[3] = BLANK_DIGIT;
 
+//skip first values
+if (ds18b20_devices >= 0) {
+	for (i = 0; i < ds18b20_devices; i++) {
+		ds18b20_temperature(&rom_code[i][0]);
+	}
+}
+
+
 ds3231_init();
 rtc_get_time(&seconds, &minutes, &hours, &day, &date, &month, &year);
 
-
 	tmp_counter = 0;
-		while (1) {
-			rtc_get_time(&seconds, &minutes, &hours, &day, &date, &month, &year);
-			tmp_counter++;
-			if(tmp_counter % 5 == 0) {
-				show_point = ~show_point;
-			}
-
-			displayInfo();
-
-			delay_ms(100);  
-            
-            if(tmp_counter == 150) {
-            if (ds18b20_devices >= 1) { 
-            temperature = ds18b20_temperature_struct(&rom_code[currentSensor][0]);
-currentSensor++;
-	 		if (currentSensor >= ds18b20_devices) {
-	 			currentSensor = 0;
-	 		}
- 
-            }               
-            tmp_counter = 0;
-            }
+	while (1) {
+		rtc_get_time(&seconds, &minutes, &hours, &day, &date, &month, &year);
+		tmp_counter++;
+		if (tmp_counter % 5 == 0) {
+			show_point = ~show_point;
 		}
+		switchMode();
+
+		if (tmp_counter % 10 == 0) {
+			displayInfo();
+		}
+
+
+
+		if (tmp_counter == 150) {
+			if (ds18b20_devices > 0) {
+				temperature = ds18b20_temperature_struct(&rom_code[0][0]);
+			}
+			tmp_counter = 0;
+		}
+		delay_ms(100);
+
+	}
 
 }
 

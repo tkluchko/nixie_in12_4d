@@ -13,7 +13,7 @@ OutputListFilesDirectory=List
 OutputObjectFilesDirectory=Obj
 OutputExecutableFilesDirectory=Exe
 OutputLinkerFilesDirectory=Linker
-AllowDisplayFunctionCallTree=0
+AllowDisplayFunctionCallTree=1
 CleanUp=2
 EditorPanelMode=0
 ActiveEditorPanel=0
@@ -21,7 +21,7 @@ Active0=0
 EditorPanel0=0
 PageIndex0=0
 EditorPanel1=0
-TimeStamp1=1264846286
+TimeStamp1=1280949565
 PageIndex1=1
 F1=nixie.c
 [Compiler]
@@ -117,7 +117,7 @@ WarningExternalDeclaredNeverDefined=1
 WarningUnknownPragma=1
 DebugBootLoader=0
 WatchAVR8LAutoVariables=0
-Build=155
+Build=168
 UseEEPROMLocation0=1
 ExternalInterruptVectors=0
 IncludePath0=
@@ -277,16 +277,16 @@ Row=0
 Column=0
 ScrollPosX=0
 ScrollPosY=0
-TimeStamp=1265483368
+TimeStamp=1281577200
 [BookmarksFoldedCode]
 Files=3
 F1=nixie.c
 F2=ds1307_twi.h
 F3=List\nixie.asm
 [Bookmarks1]
-TimeStamp=1264846286
-Row=27
-Column=58
+TimeStamp=1280949565
+Row=34
+Column=59
 ScrollPosX=0
 ScrollPosY=0
 BK0=-1
@@ -299,8 +299,6 @@ BK6=-1
 BK7=-1
 BK8=-1
 BK9=-1
-[FoldedCode1]
-Blocks=0
 [Bookmarks2]
 TimeStamp=1021163914
 Row=0
@@ -336,6 +334,8 @@ BK7=-1
 BK8=-1
 BK9=-1
 [FoldedCode3]
+Blocks=0
+[FoldedCode1]
 Blocks=0
 [HeadersList]
 Files=1
